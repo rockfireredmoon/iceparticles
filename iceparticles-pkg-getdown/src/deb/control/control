@@ -1,0 +1,9 @@
+Package: iceparticles
+Version: [[version]]
+Section: misc
+Priority: optional
+Architecture: all
+Depends: openjdk-7-jre-lib | openjdk-7-jdk | oracle-java7-install | default-jre
+Maintainer: Emerald Icemoon <emerald.icemoon@gmail.com>
+Description: OGRE Particle Effects Editor
+Distribution: development

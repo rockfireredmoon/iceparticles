@@ -1,0 +1,12 @@
+#!/bin/bash
+
+CACHE_DIR="${HOME}/.cache/iceparticles"
+mkdir -p "${CACHE_DIR}"
+pushd "${CACHE_DIR}"
+for i in /usr/lib/iceparticles/* ; do
+	basename="$(basename ${i})"
+	if [ ! -f "${basename}" -a ! -L "${basename}" ]; then
+		ln -s "${i}" . 2>/dev/null
+	fi
+done
+java -jar /usr/lib/iceparticles/getdown.jar . 

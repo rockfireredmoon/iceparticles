@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Iceparticles
+Name[en_GB]=Iceparticles
+GenericName=Particle Effects Editor
+GenericName[en_GB]=Particle Effects Editor
+Comment=OGRE Particle Effects Editor
+Icon=iceparticles.png
+TryExec=iceparticles
+Exec=iceparticles
+Terminal=false
+# Categorie entry according to version 1.0 of
+# http://www.freedesktop.org/wiki/Specifications/menu-spec
+Categories=GNOME;Network;
+Encoding=UTF-8
