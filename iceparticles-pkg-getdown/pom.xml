@@ -29,7 +29,9 @@
 						<goals>
 							<goal>updates</goal>
 							<goal>stub</goal>
+							<!--
 							<goal>applet</goal>
+							-->
 						</goals>
 						<configuration>
 							<appbase>${particles.home}/getdown</appbase>
@@ -48,10 +50,10 @@
 							<ui>
 								<name>Iceparticles</name>
 								<icons>
-									<icon>${basedir}/../iceparticles-group/src/main/installers/images/iceparticles.png</icon>
+									<icon>${basedir}/../src/main/installers/images/iceparticles.png</icon>
 								</icons>
-								<progressImage>${basedir}/../iceparticles-group/src/main/installers/images/progress.png</progressImage>
-								<backgroundImage>${basedir}/../iceparticles-group/src/main/installers/images/splash.png</backgroundImage>
+								<progressImage>${basedir}/../src/main/installers/images/progress.png</progressImage>
+								<backgroundImage>${basedir}/../src/main/installers/images/splash.png</backgroundImage>
 								<progress>80, 244, 196, 11</progress>
 								<progressText>FFFFFF</progressText>
 								<statusText>FFFFFF</statusText>
@@ -59,6 +61,7 @@
 								<textShadow>111111</textShadow>
 							</ui>
 
+							<!--
 							<sign>
 								<keystore>${signingFiles}/${certificate.keystore}</keystore>
 								<keypass>${certificate.password}</keypass>
@@ -67,6 +70,7 @@
 								<alias>${certificate.alias}</alias>
 								<verify>true</verify>
 							</sign>
+							-->
 
 						</configuration>
 					</execution>
@@ -114,7 +118,7 @@
 						</data>
 						<data>
 							<type>directory</type>
-							<src>${basedir}/../iceparticles-group/src/main/installers/scripts</src>
+							<src>${basedir}/../src/main/installers/scripts</src>
 							<includes>*</includes>
 							<mapper>
 								<type>perm</type>
@@ -127,7 +131,7 @@
 						</data>
 						<data>
 							<type>directory</type>
-							<src>${basedir}/../iceparticles-group/src/main/installers/images</src>
+							<src>${basedir}/../src/main/installers/images</src>
 							<includes>iceparticles.png</includes>
 							<mapper>
 								<type>perm</type>
@@ -140,7 +144,7 @@
 						</data>
 						<data>
 							<type>directory</type>
-							<src>${basedir}/../iceparticles-group/src/main/installers/applications</src>
+							<src>${basedir}/../src/main/installers/applications</src>
 							<includes>*</includes>
 							<mapper>
 								<type>perm</type>
@@ -193,7 +197,7 @@
 							<groupname>root</groupname>
 							<sources>
 								<source>
-									<location>${basedir}/../iceparticles-group/src/main/installers/scripts/iceparticles</location>
+									<location>${basedir}/../src/main/installers/scripts/iceparticles</location>
 								</source>
 							</sources>
 						</mapping>
@@ -205,7 +209,7 @@
 							<groupname>root</groupname>
 							<sources>
 								<source>
-									<location>${basedir}/../iceparticles-group/src/main/installers/applications/iceparticles.desktop</location>
+									<location>${basedir}/../src/main/installers/applications/iceparticles.desktop</location>
 								</source>
 							</sources>
 						</mapping>
@@ -217,7 +221,7 @@
 							<groupname>root</groupname>
 							<sources>
 								<source>
-									<location>${basedir}/../iceparticles-group/src/main/installers/images/iceparticles.png</location>
+									<location>${basedir}/../src/main/installers/images/iceparticles.png</location>
 								</source>
 							</sources>
 						</mapping>
@@ -294,6 +298,7 @@
 
 			<!-- And now OS X -->
 
+			<!--
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>osxappbundle-maven-plugin</artifactId>
@@ -326,6 +331,7 @@
 					</execution>
 				</executions>
 			</plugin>
+			-->
 
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
@@ -340,7 +346,7 @@
 						</goals>
 						<configuration>
 							<fromDir>target</fromDir>
-							<includes>getdown/**/*,getdown-applet/**/*,iceparticles-app.zip,iceparticles.deb,SetupIceparticles.exe,iceparticles.noarch.rpm</includes>
+							<includes>getdown/**/*,iceparticles-app.zip,iceparticles.deb,SetupIceparticles.exe,iceparticles.noarch.rpm</includes>
 							<url>scp://${particles.username}@${particles.host}${particles.dir}</url>
 						</configuration>
 					</execution>
@@ -356,7 +362,7 @@
 	<dependencies>
 		<dependency>
 			<groupId>org.icemoon</groupId>
-			<artifactId>iceparticles</artifactId>
+			<artifactId>iceparticles-app</artifactId>
 			<version>${project.version}</version>
 			<scope>compile</scope>
 		</dependency>
