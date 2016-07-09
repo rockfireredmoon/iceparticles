@@ -52,7 +52,7 @@ public class Iceparticles extends IcesceneApp implements ActionListener {
 			throw new Exception("No URL supplied.");
 		}
 		Iceparticles app = new Iceparticles(cmdLine);
-		startApp(app, cmdLine, "PlanetForever - " + AppInfo.getName() + " - " + AppInfo.getVersion(),
+		startApp(app, cmdLine, AppInfo.getName() + " - " + AppInfo.getVersion(),
 				ParticleConstants.APPSETTINGS_NAME);
 	}
 
