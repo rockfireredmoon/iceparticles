@@ -9,4 +9,12 @@ for i in /usr/lib/iceparticles/* ; do
 		ln -s "${i}" . 2>/dev/null
 	fi
 done
-java -jar /usr/lib/iceparticles/getdown.jar . 
+
+if [ ! -f logging.properties ] ; then
+	ln -sf /etc/iceparticles/logging.properties logging.properties
+fi 
+if [ $# = 0 ] ; then
+	java -jar /usr/lib/iceparticles/getdown.jar .
+else
+	java -jar /usr/lib/iceparticles/getdown.jar . "" $@
+fi 

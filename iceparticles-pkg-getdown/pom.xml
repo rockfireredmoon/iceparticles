@@ -46,7 +46,9 @@
 							<appargs>
 								<apparg>${particles.assetUrl}</apparg>
 							</appargs>
-
+							<jvmargs>
+								<jvmarg>-Djava.util.logging.config.file=logging.properties</jvmarg>
+							</jvmargs>
 							<ui>
 								<name>Iceparticles</name>
 								<icons>
@@ -124,6 +126,19 @@
 								<type>perm</type>
 								<strip>1</strip>
 								<prefix>/usr/bin</prefix>
+								<user>root</user>
+								<group>root</group>
+								<filemode>755</filemode>
+							</mapper>
+						</data>
+						<data>
+							<type>directory</type>
+							<src>${basedir}/../src/main/installers/configuration</src>
+							<includes>*.*</includes>
+							<mapper>
+								<type>perm</type>
+								<strip>1</strip>
+								<prefix>/etc/iceparticles</prefix>
 								<user>root</user>
 								<group>root</group>
 								<filemode>755</filemode>
@@ -210,6 +225,21 @@
 							<sources>
 								<source>
 									<location>${basedir}/../src/main/installers/applications/iceparticles.desktop</location>
+								</source>
+							</sources>
+						</mapping>
+						<mapping>
+							<directoryIncluded>false</directoryIncluded>
+							<directory>/etc/iceparticles</directory>
+							<filemode>755</filemode>
+							<username>root</username>
+							<groupname>root</groupname>
+							<sources>
+								<source>
+									<location>${basedir}/../src/main/installers/configuration</location>
+									<includes>
+										<include>**/*</include>
+									</includes>
 								</source>
 							</sources>
 						</mapping>

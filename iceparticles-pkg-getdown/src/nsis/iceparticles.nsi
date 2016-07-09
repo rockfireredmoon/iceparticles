@@ -84,6 +84,7 @@ Section "Iceparticles" Iceparticles
   File iceparticlessmall.ico
   File iceparticlesbanner.bmp
   File Readme.txt
+  File ..\..\..\src\main\installers\configuration\logging.properties
   
   ;Store installation folder
   WriteRegStr HKCU "Software\Iceparticles" "" $INSTDIR
