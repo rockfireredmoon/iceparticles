@@ -11,6 +11,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
+import org.icelib.Icelib;
 import org.icelib.UndoManager;
 import org.icescene.IcemoonAppState;
 import org.icescene.IcesceneApp;
@@ -124,7 +125,7 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 
 	public void save() {
 		try {
-			File file = app.getAssets().getExternalAssetFile(particleConfiguration.getAssetPath());
+			File file = Icelib.makeParent(app.getAssets().getExternalAssetFile(particleConfiguration.getAssetPath()));
 			if (!file.exists()) {
 				final FancyInputBox dialog = new FancyInputBox(screen, new Vector2f(15, 15), FancyWindow.Size.LARGE, true) {
 					@Override
