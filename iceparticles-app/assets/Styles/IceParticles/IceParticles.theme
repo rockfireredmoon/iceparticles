@@ -1,0 +1,7 @@
+---
+!theme
+name: "IceParticles"
+author: "Emerald Icemoon"
+description: "Generic CSS for IceParticles extensions"
+path: "IceParticles.css"
+parent: ".*"

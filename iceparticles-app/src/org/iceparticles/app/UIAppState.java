@@ -3,23 +3,19 @@ package org.iceparticles.app;
 import java.util.prefs.PreferenceChangeEvent;
 import java.util.prefs.Preferences;
 
-import org.icelib.UndoManager;
 import org.iceparticles.ParticleConfig;
 import org.icescene.scene.AbstractSceneUIAppState;
+import org.iceui.actions.AppAction;
+import org.iceui.actions.AppAction.Style;
 
-import com.jme3.input.event.MouseButtonEvent;
-import com.jme3.math.Vector2f;
-
-import icetone.controls.buttons.CheckBox;
 import icetone.controls.lists.FloatRangeSliderModel;
 import icetone.controls.lists.Slider;
-import icetone.core.Element.Orientation;
+import icetone.core.Orientation;
 import icetone.core.layout.mig.MigLayout;
+import icetone.core.undo.UndoManager;
 
 public class UIAppState extends AbstractSceneUIAppState {
 
-	private CheckBox debugEmitter;
-	private CheckBox debugParticles;
 	private Slider<Float> timeScale;
 
 	public UIAppState(UndoManager undoManager, Preferences prefs) {
@@ -35,42 +31,29 @@ public class UIAppState extends AbstractSceneUIAppState {
 	@Override
 	protected void addBefore() {
 
-		// Emitter Particles
-		debugEmitter = new CheckBox(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				prefs.putBoolean(ParticleConfig.PARTICLES_DEBUG_EMITTER, toggled);
-			}
-		};
-		debugEmitter.setIsCheckedNoCallback(prefs.getBoolean(ParticleConfig.PARTICLES_DEBUG_EMITTER,
-				ParticleConfig.PARTICLES_DEBUG_EMITTER_DEFAULT));
-		debugEmitter.setLabelText("Emitter");
-		layer.addChild(debugEmitter);
+		if (menuBar != null) {
+			menuBar.invalidate();
+
+			menuBar.addAction(new AppAction("Debug Emitter", evt -> {
+				prefs.putBoolean(ParticleConfig.PARTICLES_DEBUG_EMITTER, evt.getSourceAction().isActive());
+			}).setMenu("View").setStyle(Style.TOGGLE).setActive(prefs.getBoolean(ParticleConfig.PARTICLES_DEBUG_EMITTER,
+					ParticleConfig.PARTICLES_DEBUG_EMITTER_DEFAULT)));
+
+			menuBar.addAction(new AppAction("Debug Particles", evt -> {
+				prefs.putBoolean(ParticleConfig.PARTICLES_DEBUG_PARTICLES, evt.getSourceAction().isActive());
+			}).setMenu("View").setStyle(Style.TOGGLE).setActive(prefs.getBoolean(
+					ParticleConfig.PARTICLES_DEBUG_PARTICLES, ParticleConfig.PARTICLES_DEBUG_PARTICLES_DEFAULT)));
+
+			menuBar.validate();
+		}
 
 		// Debug Particles
-		debugParticles = new CheckBox(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				prefs.putBoolean(ParticleConfig.PARTICLES_DEBUG_PARTICLES, toggled);
-			}
-		};
-		debugParticles.setIsCheckedNoCallback(prefs.getBoolean(ParticleConfig.PARTICLES_DEBUG_PARTICLES,
-				ParticleConfig.PARTICLES_DEBUG_PARTICLES_DEFAULT));
-		debugParticles.setLabelText("Particles");
-		layer.addChild(debugParticles);
-
-		// Debug Particles
-		timeScale = new Slider<Float>(screen, Orientation.HORIZONTAL, true) {
-
-			@Override
-			public void onChange(Float value) {
-				prefs.putFloat(ParticleConfig.PARTICLES_TIME_SCALE, (Float) value);
-			}
-		};
-		float ts = prefs.getFloat(ParticleConfig.PARTICLES_TIME_SCALE, ParticleConfig.PARTICLES_TIME_SCALE_DEFAULT);
-		timeScale.setSliderModel(new FloatRangeSliderModel(0, 5, ts));
-		timeScale.setToolTipText(String.format("Time Scale : %2.2f", ts));
-		layer.addChild(timeScale, "growx");
+//		timeScale = new Slider<Float>(screen, Orientation.HORIZONTAL);
+//		timeScale.onChanged(evt -> prefs.putFloat(ParticleConfig.PARTICLES_TIME_SCALE, evt.getNewValue()));
+//		float ts = prefs.getFloat(ParticleConfig.PARTICLES_TIME_SCALE, ParticleConfig.PARTICLES_TIME_SCALE_DEFAULT);
+//		timeScale.setSliderModel(new FloatRangeSliderModel(0, 5, ts));
+//		timeScale.setToolTipText(String.format("Time Scale : %2.2f", ts));
+//		layer.addElement(timeScale, "growx");
 
 	}
 

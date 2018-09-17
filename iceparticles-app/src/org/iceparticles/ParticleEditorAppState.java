@@ -12,32 +12,35 @@ import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
 import org.icelib.Icelib;
-import org.icelib.UndoManager;
 import org.icescene.IcemoonAppState;
 import org.icescene.IcesceneApp;
 import org.icescene.ogreparticle.OGREParticleConfiguration;
 import org.icescene.ogreparticle.OGREParticleScript;
-import org.iceui.HPosition;
-import org.iceui.VPosition;
-import org.iceui.controls.FancyButton;
-import org.iceui.controls.FancyDialogBox;
-import org.iceui.controls.FancyInputBox;
-import org.iceui.controls.FancyPersistentWindow;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.SaveType;
-import org.iceui.controls.UIUtil;
+import org.iceui.controls.ElementStyle;
 
 import com.google.common.base.Objects;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetNotFoundException;
+import com.jme3.font.BitmapFont.Align;
+import com.jme3.font.BitmapFont.VAlign;
 import com.jme3.input.event.MouseButtonEvent;
 import com.jme3.math.Vector2f;
 import com.jme3.scene.Node;
 
 import icemoon.iceloader.ServerAssetManager;
-import icetone.core.Element;
+import icetone.controls.buttons.PushButton;
+import icetone.core.BaseElement;
+import icetone.core.Size;
+import icetone.core.ToolKit;
+import icetone.core.layout.Border;
 import icetone.core.layout.BorderLayout;
+import icetone.core.layout.ScreenLayoutConstraints;
 import icetone.core.layout.mig.MigLayout;
+import icetone.core.undo.UndoManager;
+import icetone.extras.windows.DialogBox;
+import icetone.extras.windows.InputBox;
+import icetone.extras.windows.PersistentWindow;
+import icetone.extras.windows.SaveType;
 
 public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> {
 
@@ -47,16 +50,16 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 		return stateManager.getState(ParticleEditorAppState.class) != null;
 	}
 
-	private FancyPersistentWindow particleEditWindow;
+	private PersistentWindow particleEditWindow;
 	private ParticleEditorPanel particleEditorPanel;
 	private OGREParticleConfiguration particleConfiguration;
 	private final UndoManager undoManager;
 	private boolean needsSave;
 	private UndoManager.ListenerAdapter listener;
-	private FancyButton saveEnv;
-	private FancyButton copy;
-	private FancyButton paste;
-	private FancyButton delete;
+	private PushButton saveEnv;
+	private PushButton copy;
+	private PushButton paste;
+	private PushButton delete;
 
 	public ParticleEditorAppState(UndoManager undoManager, Preferences prefs, Node gameNode) {
 		super(prefs);
@@ -90,8 +93,8 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 		undoManager.removeListener(listener);
 		super.onCleanup();
 		setConfiguration(null);
-		if (particleEditWindow.getIsVisible()) {
-			particleEditWindow.hideWindow();
+		if (particleEditWindow.isVisible()) {
+			particleEditWindow.hide();
 		}
 	}
 
@@ -103,7 +106,8 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 			if (this.particleConfiguration != null) {
 				ParticleViewerAppState pav = app.getStateManager().getState(ParticleViewerAppState.class);
 				if (pav != null) {
-					for (Map.Entry<String, OGREParticleScript> en : this.particleConfiguration.getBackingObject().entrySet()) {
+					for (Map.Entry<String, OGREParticleScript> en : this.particleConfiguration.getBackingObject()
+							.entrySet()) {
 						if (pav.hasScript(en.getValue())) {
 							pav.removeScript(en.getValue());
 						}
@@ -114,12 +118,10 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 			this.particleConfiguration = particleConfiguration;
 			if (particleEditorPanel != null) {
 				particleEditorPanel.setConfiguration(particleConfiguration);
-			}
-			if (particleEditWindow != null) {
 				setParticleWindowTitle();
+				setAvailable();
 			}
 
-			setAvailable();
 		}
 	}
 
@@ -127,10 +129,14 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 		try {
 			File file = Icelib.makeParent(app.getAssets().getExternalAssetFile(particleConfiguration.getAssetPath()));
 			if (!file.exists()) {
-				final FancyInputBox dialog = new FancyInputBox(screen, new Vector2f(15, 15), FancyWindow.Size.LARGE, true) {
+				final InputBox dialog = new InputBox(screen, new Vector2f(15, 15), true) {
+					{
+						setStyleClass("large");
+					}
+
 					@Override
 					public void onButtonCancelPressed(MouseButtonEvent evt, boolean toggled) {
-						hideWindow();
+						hide();
 					}
 
 					@Override
@@ -156,28 +162,26 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 							} finally {
 								setAvailable();
 							}
-							hideWindow();
+							hide();
 						}
 					}
 				};
 				dialog.setDestroyOnHide(true);
-				dialog.getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
+				ElementStyle.warningColor(dialog.getDragBar());
 				dialog.setWindowTitle("Save Particle File");
 				dialog.setButtonOkText("Save");
 				dialog.setMsg("");
-				dialog.setIsResizable(false);
-				dialog.setIsMovable(false);
-				dialog.sizeToContent();
-				dialog.setWidth(340);
-				UIUtil.center(screen, dialog);
-				screen.addElement(dialog, null, true);
-				dialog.showAsModal(true);
+				dialog.setResizable(false);
+				dialog.setMovable(false);
+				dialog.setModal(true);
+				screen.showElement(dialog, ScreenLayoutConstraints.center);
 			} else {
 				saveParticles(file);
 				info(String.format("Saved particle configuration %s", particleConfiguration.getConfigurationName()));
 			}
 		} catch (Exception e) {
-			error(String.format("Faile to save particle configuration %s", particleConfiguration.getConfigurationName()), e);
+			error(String.format("Faile to save particle configuration %s",
+					particleConfiguration.getConfigurationName()), e);
 			LOG.log(Level.SEVERE, "Failed to save particle configuration.", e);
 		} finally {
 			setAvailable();
@@ -189,99 +193,102 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 	}
 
 	protected void particleEditWindow() {
-		particleEditWindow = new FancyPersistentWindow(screen, "ParticleEdit",
-				screen.getStyle("Common").getInt("defaultWindowOffset"), VPosition.TOP, HPosition.RIGHT, new Vector2f(410, 480),
-				FancyWindow.Size.SMALL, true, SaveType.POSITION_AND_SIZE, prefs) {
+		particleEditWindow = new PersistentWindow(screen, "ParticleEdit", VAlign.Top, Align.Right, new Size(410, 480),
+				true, SaveType.POSITION_AND_SIZE, prefs) {
 			@Override
 			protected void onCloseWindow() {
 				super.onCloseWindow();
 				app.getStateManager().detach(ParticleEditorAppState.this);
 			}
 		};
-		particleEditWindow.setIsResizable(true);
+		particleEditWindow.setResizable(true);
 		particleEditWindow.setDestroyOnHide(true);
 		setParticleWindowTitle();
 		particleEditWindow.setMinimizable(true);
 
-		Element contentArea = particleEditWindow.getContentArea();
+		BaseElement contentArea = particleEditWindow.getContentArea();
 		contentArea.setLayoutManager(new BorderLayout(4, 4));
-		contentArea.addChild(
-				particleEditorPanel = new ParticleEditorPanel(app.getStateManager().getState(ParticleViewerAppState.class),
-						undoManager, screen, prefs, particleConfiguration),
-				"span 4, growx");
-		contentArea.addChild(createButtons(), BorderLayout.Border.SOUTH);
+		contentArea.addElement(particleEditorPanel = new ParticleEditorPanel(
+				app.getStateManager().getState(ParticleViewerAppState.class), undoManager, screen, prefs,
+				particleConfiguration), "span 4, growx");
+		contentArea.addElement(createButtons(), Border.SOUTH);
 		screen.addElement(particleEditWindow);
 		if (particleConfiguration != null) {
 			setConfiguration(particleConfiguration);
 		}
 	}
 
-	protected Element createButtons() {
-		Element bottom = new Element(screen);
+	protected BaseElement createButtons() {
+		BaseElement bottom = new BaseElement(screen);
 		bottom.setLayoutManager(new MigLayout(screen, "", "push[][][][]push", "[]"));
 
 		// Save
-		saveEnv = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				save();
+		saveEnv = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		saveEnv.onMouseReleased(evt -> save());
 		saveEnv.setToolTipText("Save any changes you have made.");
 		saveEnv.setText("Save");
-		bottom.addChild(saveEnv);
+		bottom.addElement(saveEnv);
 
 		// Copy
-		copy = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				ByteArrayOutputStream baos = new ByteArrayOutputStream();
-				try {
-					try {
-						particleConfiguration.write(baos, false);
-					} finally {
-						baos.close();
-					}
-					screen.setClipboardText(new String(baos.toByteArray(), "UTF-8"));
-					info(String.format("Particle file '%s' copied to clipboard.", particleConfiguration.getConfigurationName()));
-				} catch (Exception e) {
-					LOG.log(Level.SEVERE, "Failed to copy particle file to clipboad.", e);
-				}
+		copy = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		copy.onMouseReleased(evt -> {
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			try {
+				try {
+					particleConfiguration.write(baos, false);
+				} finally {
+					baos.close();
+				}
+				ToolKit.get().setClipboardText(new String(baos.toByteArray(), "UTF-8"));
+				info(String.format("Particle file '%s' copied to clipboard.",
+						particleConfiguration.getConfigurationName()));
+			} catch (Exception e) {
+				LOG.log(Level.SEVERE, "Failed to copy particle file to clipboad.", e);
+			}
+		});
 		copy.setText("Copy");
 		copy.setToolTipText("Copy the entire script file to the clipboard.");
-		bottom.addChild(copy);
+		bottom.addElement(copy);
 
 		// Paste
-		paste = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				try {
-					OGREParticleConfiguration cfg = particleConfiguration;
-					cfg.load(new ByteArrayInputStream(screen.getClipboardText().getBytes()));
-					setConfiguration(null);
-					setConfiguration(cfg);
-					info(String.format("Particle file '%s' pasted from clipboard.", cfg.getConfigurationName()));
-				} catch (Exception e) {
-					LOG.log(Level.SEVERE, "Failed to paste to particle file from clipboad.", e);
-				}
+		paste = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		paste.onMouseReleased(evt -> {
+			try {
+				OGREParticleConfiguration cfg = particleConfiguration;
+				cfg.load(new ByteArrayInputStream(ToolKit.get().getClipboardText().getBytes()));
+				setConfiguration(null);
+				setConfiguration(cfg);
+				info(String.format("Particle file '%s' pasted from clipboard.", cfg.getConfigurationName()));
+			} catch (Exception e) {
+				LOG.log(Level.SEVERE, "Failed to paste to particle file from clipboad.", e);
+			}
+		});
 		paste.setText("Paste");
 		paste.setToolTipText("Paste the entire script file to the clipboard.");
-		bottom.addChild(paste);
+		bottom.addElement(paste);
 
 		// Delete
-		delete = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				deleteScriptFile();
+		delete = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		delete.onMouseReleased(evt -> deleteScriptFile());
 		delete.setText("Delete");
 		delete.setToolTipText("Delete the entire script file.");
-		bottom.addChild(delete);
+		bottom.addElement(delete);
 
 		return bottom;
 	}
@@ -292,16 +299,21 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 		}
 		boolean external = particleConfiguration != null
 				&& ((IcesceneApp) app).getAssets().isExternal(particleConfiguration.getAssetPath());
-		delete.setIsEnabled(external);
-		paste.setIsEnabled(external);
-		saveEnv.setIsEnabled(needsSave);
+		delete.setEnabled(external);
+		paste.setEnabled(external);
+		saveEnv.setEnabled(needsSave);
 	}
 
 	protected void deleteScriptFile() {
-		final FancyDialogBox dialog = new FancyDialogBox(screen, new Vector2f(15, 15), FancyWindow.Size.LARGE, true) {
+		final DialogBox dialog = new DialogBox(screen, new Vector2f(15, 15), true) {
+
+			{
+				setStyleClass("large");
+			}
+
 			@Override
 			public void onButtonCancelPressed(MouseButtonEvent evt, boolean toggled) {
-				hideWindow();
+				hide();
 			}
 
 			@Override
@@ -310,28 +322,26 @@ public class ParticleEditorAppState extends IcemoonAppState<IcemoonAppState<?>> 
 				((ServerAssetManager) app.getAssetManager()).reindex();
 				OGREParticleConfiguration.removeFromCache(particleConfiguration);
 				app.getStateManager().detach(ParticleEditorAppState.this);
-				hideWindow();
+				hide();
 			}
 		};
 		dialog.setDestroyOnHide(true);
-		dialog.getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
+		ElementStyle.warningColor(dialog.getDragBar());
 		dialog.getDragBar().setText("Confirm Script File Delete");
 		dialog.setButtonOkText("Delete");
 		dialog.setMsg(String.format("Are you sure you wish to delete this script file?"));
-
-		dialog.pack(false);
-		dialog.setIsResizable(false);
-		dialog.setIsMovable(false);
-		UIUtil.center(screen, dialog);
-		screen.addElement(dialog, null, true);
-		dialog.showAsModal(true);
+		dialog.setResizable(false);
+		dialog.setMovable(false);
+		dialog.setModal(true);
+		screen.showElement(dialog, ScreenLayoutConstraints.center);
 	}
 
 	private void setParticleWindowTitle() {
 		if (particleConfiguration == null) {
 			particleEditWindow.setWindowTitle(String.format("Particles - <None>"));
 		} else {
-			particleEditWindow.setWindowTitle(String.format("Particles - %s", particleConfiguration.getConfigurationName()));
+			particleEditWindow
+					.setWindowTitle(String.format("Particles - %s", particleConfiguration.getConfigurationName()));
 		}
 	}
 

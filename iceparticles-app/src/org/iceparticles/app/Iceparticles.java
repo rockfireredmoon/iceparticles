@@ -1,14 +1,11 @@
 package org.iceparticles.app;
 
-import icemoon.iceloader.ServerAssetManager;
-
 import java.io.File;
 import java.util.logging.Logger;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.icelib.AppInfo;
-import org.icelib.UndoManager;
 import org.iceparticles.ParticleConfig;
 import org.iceparticles.ParticleConstants;
 import org.iceparticles.ParticleViewerAppState;
@@ -21,7 +18,7 @@ import org.icescene.debug.LoadScreenAppState;
 import org.icescene.io.ModifierKeysAppState;
 import org.icescene.io.MouseManager;
 import org.icescene.options.OptionsAppState;
-import org.icescene.ui.WindowManagerAppState;
+import org.iceui.actions.ActionAppState;
 import org.lwjgl.opengl.Display;
 
 import com.jme3.bullet.BulletAppState;
@@ -31,6 +28,10 @@ import com.jme3.math.ColorRGBA;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Node;
+
+import icemoon.iceloader.ServerAssetManager;
+import icetone.core.undo.UndoManager;
+import icetone.extras.appstates.FrameManagerAppState;
 
 public class Iceparticles extends IcesceneApp implements ActionListener {
 
@@ -115,6 +116,9 @@ public class Iceparticles extends IcesceneApp implements ActionListener {
 		gameNode.attachChild(worldNode);
 		rootNode.attachChild(gameNode);
 
+		// MenuBar
+		stateManager.attach(new ActionAppState(screen));
+
 		// Undo manager
 		UndoManager undoManager = new UndoManager();
 
@@ -124,7 +128,7 @@ public class Iceparticles extends IcesceneApp implements ActionListener {
 		screen.setUIAudioVolume(audioAppState.getActualUIVolume());
 
 		// Some windows need management
-		stateManager.attach(new WindowManagerAppState(prefs));
+		stateManager.attach(new FrameManagerAppState(screen));
 		
 		// Download progress
 		LoadScreenAppState load = new LoadScreenAppState(prefs);
@@ -142,18 +146,17 @@ public class Iceparticles extends IcesceneApp implements ActionListener {
 		stateManager.attach(new ModifierKeysAppState());
 
 		// Mouse manager for dealing with clicking, dragging etc.
-		final MouseManager mouseManager = new MouseManager(rootNode, getAlarm());
+		final MouseManager mouseManager = new MouseManager(rootNode);
 		stateManager.attach(mouseManager);
 
 		// A menu
-		stateManager.attach(new MenuAppState(undoManager, prefs, gameNode));
+		stateManager.attach(new MenuAppState(undoManager, prefs));
 
 		// Viewer handles the active particle groups
 		stateManager.attach(new ParticleViewerAppState(prefs, gameNode));
 
 		// Other UI bits (background chooser etc)
 		stateManager.attach(new UIAppState(undoManager, prefs));
-		
 
 		// Input
 		getKeyMapManager().addMapping(MAPPING_OPTIONS);

@@ -9,46 +9,45 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
-import org.icelib.UndoManager;
-import org.icescene.Alarm;
 import org.icescene.HUDMessageAppState;
 import org.icescene.IcesceneApp;
 import org.icescene.ogreparticle.OGREParticleConfiguration;
 import org.icescene.ogreparticle.OGREParticleScript;
 import org.icescene.ogreparticle.emitters.PointEmitter;
-import org.iceui.XTabPanelContent;
-import org.iceui.controls.FancyButton;
-import org.iceui.controls.FancyDialogBox;
-import org.iceui.controls.FancyInputBox;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.UIUtil;
-import org.iceui.controls.XSeparator;
-import org.iceui.controls.ZMenu;
+import org.iceui.controls.ElementStyle;
 
 import com.jme3.input.event.KeyInputEvent;
 import com.jme3.input.event.MouseButtonEvent;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
-import com.jme3.math.Vector4f;
 
 import icetone.controls.buttons.CheckBox;
-import icetone.controls.extras.SplitPanel;
-import icetone.controls.lists.Table;
-import icetone.controls.lists.Table.TableCell;
-import icetone.controls.lists.Table.TableRow;
+import icetone.controls.buttons.PushButton;
+import icetone.controls.containers.SplitPanel;
+import icetone.controls.containers.TabControl;
+import icetone.controls.menuing.Menu;
+import icetone.controls.table.Table;
+import icetone.controls.table.TableCell;
+import icetone.controls.table.TableRow;
 import icetone.controls.text.Label;
 import icetone.controls.text.TextField;
-import icetone.controls.windows.TabControl;
-import icetone.core.Container;
-import icetone.core.Element;
-import icetone.core.ElementManager;
+import icetone.core.BaseScreen;
+import icetone.core.Orientation;
+import icetone.core.Size;
+import icetone.core.StyledContainer;
+import icetone.core.ToolKit;
+import icetone.core.event.MouseUIButtonEvent;
 import icetone.core.layout.FillLayout;
-import icetone.core.layout.LUtil;
+import icetone.core.layout.ScreenLayoutConstraints;
 import icetone.core.layout.mig.MigLayout;
-import icetone.listeners.MouseButtonListener;
+import icetone.core.undo.UndoManager;
+import icetone.core.undo.UndoableCommand;
+import icetone.core.utils.Alarm;
+import icetone.extras.windows.DialogBox;
+import icetone.extras.windows.InputBox;
 
-public class ParticleEditorPanel extends Container {
+public class ParticleEditorPanel extends StyledContainer {
 
 	private static final Logger LOG = Logger.getLogger(ParticleEditorPanel.class.getName());
 
@@ -68,38 +67,24 @@ public class ParticleEditorPanel extends Container {
 	private EmittersEditPanel emitters;
 	private final AffectorsEditPanel affectors;
 	private final UndoManager undoManager;
-	private boolean adjusting;
-	private final FancyButton newScript;
-	private final FancyButton deleteScript;
-	private FancyButton stopScripts;
+	private final PushButton newScript;
+	private final PushButton deleteScript;
+	private PushButton stopScripts;
 
-	class ScriptTable extends Table implements MouseButtonListener {
+	class ScriptTable extends Table {
 
-		public ScriptTable(ElementManager screen) {
+		public ScriptTable(BaseScreen screen) {
 			super(screen);
-		}
 
-		@Override
-		public void onChange() {
-			super.onChange();
-			if (!adjusting) {
-				rebuildPropertyPane();
-			}
-		}
-
-		@Override
-		public void onMouseLeftReleased(MouseButtonEvent evt) {
-		}
-
-		@Override
-		public void onMouseRightPressed(MouseButtonEvent evt) {
-		}
-
-		public void onMouseRightReleased(MouseButtonEvent evt) {
-			ZMenu rightClickMenu = new ZMenu(screen) {
-				@Override
-				protected void onItemSelected(ZMenu.ZMenuItem item) {
-					switch ((ScriptsRightClickMenuAction) item.getValue()) {
+			setHeadersVisible(false);
+			setColumnResizeMode(Table.ColumnResizeMode.AUTO_FIRST);
+			setSortable(true);
+			addColumn("Group");
+			addColumn("");
+			onMouseReleased(evt -> {
+				Menu<ScriptsRightClickMenuAction> rightClickMenu = new Menu<>(screen);
+				rightClickMenu.onChanged((evt2) -> {
+					switch ((ScriptsRightClickMenuAction) evt2.getNewValue().getValue()) {
 					case DELETE:
 						deleteScript();
 						break;
@@ -110,22 +95,24 @@ public class ParticleEditorPanel extends Container {
 						pasteScriptFromClipboard();
 						break;
 					}
+				});
+				rightClickMenu.addMenuItem("Copy", ScriptsRightClickMenuAction.COPY);
+				rightClickMenu.addMenuItem("Paste", ScriptsRightClickMenuAction.PASTE);
+				rightClickMenu.addSeparator();
+				rightClickMenu.addMenuItem("Delete", ScriptsRightClickMenuAction.DELETE);
+				rightClickMenu.showMenu(null, evt.getX(), evt.getY());
+			}, MouseUIButtonEvent.RIGHT);
+
+			onChanged(evt -> {
+				if (!isAdjusting()) {
+					rebuildPropertyPane();
 				}
-			};
-			rightClickMenu.addMenuItem("Copy", ScriptsRightClickMenuAction.COPY);
-			rightClickMenu.addMenuItem("Paste", ScriptsRightClickMenuAction.PASTE);
-			rightClickMenu.addMenuItem(null, new XSeparator(screen, Element.Orientation.HORIZONTAL), null).setSelectable(false);
-			rightClickMenu.addMenuItem("Delete", ScriptsRightClickMenuAction.DELETE);
-			screen.addElement(rightClickMenu);
-			rightClickMenu.showMenu(null, evt.getX(), evt.getY());
+			});
 		}
 
-		@Override
-		public void onMouseLeftPressed(MouseButtonEvent evt) {
-		}
 	}
 
-	public ParticleEditorPanel(ParticleViewerAppState particleViewer, UndoManager undoManager, ElementManager screen,
+	public ParticleEditorPanel(ParticleViewerAppState particleViewer, UndoManager undoManager, BaseScreen screen,
 			Preferences prefs, OGREParticleConfiguration configuration) {
 		super(screen);
 		this.particleViewer = particleViewer;
@@ -136,13 +123,7 @@ public class ParticleEditorPanel extends Container {
 
 		// Table
 		scripts = new ScriptTable(screen);
-		scripts.setHeadersVisible(false);
-		scripts.setUseContentPaging(true);
-		scripts.setColumnResizeMode(Table.ColumnResizeMode.AUTO_FIRST);
-		scripts.setSortable(true);
-		scripts.addColumn("Group");
 		particleViewer = screen.getApplication().getStateManager().getState(ParticleViewerAppState.class);
-		scripts.addColumn("");
 
 		// Scrip parameters
 		script = new ScriptEditPanel(prefs, particleViewer, undoManager, screen);
@@ -155,60 +136,63 @@ public class ParticleEditorPanel extends Container {
 
 		// Tabls
 		properties = new TabControl(screen);
-		properties.setMinDimensions(Vector2f.ZERO);
-		properties.addTab("Script");
-		properties.addTabChild(0, XTabPanelContent.create(screen, script));
-		properties.addTab("Emitters");
-		properties.addTabChild(1, XTabPanelContent.create(screen, emitters));
-		properties.addTab("Affectors");
-		properties.addTabChild(2, XTabPanelContent.create(screen, affectors));
+		properties.setMinDimensions(Size.ZERO);
+		properties.addTab("Script", script);
+		properties.addTab("Emitters", emitters);
+		properties.addTab("Affectors", affectors);
 
 		// New script
-		newScript = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				createNewScript();
+		newScript = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
-		newScript.setButtonIcon(16, 16, "Interface/Styles/Gold/Common/Icons/new.png");
+		newScript.onMouseReleased(evt -> createNewScript());
+		newScript.getButtonIcon().addStyleClass("button-icon icon-new");
 		newScript.setToolTipText("New Script");
 
 		// Delete script
 
-		deleteScript = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				deleteScript();
+		deleteScript = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
-		deleteScript.setButtonIcon(16, 16, "Interface/Styles/Gold/Common/Icons/trash.png");
+		deleteScript.onMouseReleased(evt -> deleteScript());
+		deleteScript.getButtonIcon().addStyleClass("button-icon icon-trash");
 		deleteScript.setToolTipText("Delete Script");
 		// Stop all scripts
 
-		stopScripts = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				for (TableRow row : scripts.getRows()) {
-					// OGREParticleScript scr =
-					// (OGREParticleScript)row.getValue();
-					// if(ParticleEditorPanel.this.particleViewer.hasScript(scr))
-					// {
-					// ParticleEditorPanel.this.particleViewer.removeScript(scr);
-					// }
-					TableCell cell = row.getCell(1);
-					CheckBox checkBox = (CheckBox) cell.getChild("CheckBox:Node");
-					if (checkBox != null)
-						checkBox.setIsChecked(false);
-				}
+		stopScripts = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
-		stopScripts.setButtonIcon(16, 16, "Interface/Styles/Gold/Common/Icons/stop.png");
+		stopScripts.onMouseReleased(evt -> {
+			for (TableRow row : scripts.getRows()) {
+				// OGREParticleScript scr =
+				// (OGREParticleScript)row.getValue();
+				// if(ParticleEditorPanel.this.particleViewer.hasScript(scr))
+				// {
+				// ParticleEditorPanel.this.particleViewer.removeScript(scr);
+				// }
+				TableCell cell = row.getCell(1);
+				CheckBox checkBox = (CheckBox) cell.getChild("CheckBox:Node");
+				if (checkBox != null)
+					checkBox.setChecked(false);
+			}
+		});
+		stopScripts.getButtonIcon().addStyleClass("button-icon icon-stop");
 		stopScripts.setToolTipText("Stop All Scripts");
 
 		// Top
-		Container top = new Container(screen);
+		StyledContainer top = new StyledContainer(screen) {
+			{
+				setStyleClass("editor-tools");
+			}
+		};
 		top.setLayoutManager(new MigLayout(screen, "wrap 5", "[][fill,grow][][][]", "[shrink 0][fill,grow]"));
-		top.addChild(new Label("Filter", screen));
+		top.addElement(new Label("Filter", screen));
 		filter = new TextField(screen) {
 			@Override
 			public void onKeyRelease(KeyInputEvent evt) {
@@ -216,21 +200,21 @@ public class ParticleEditorPanel extends Container {
 				resetFilterTimer();
 			}
 		};
-		top.addChild(filter, "growx");
-		top.addChild(stopScripts);
-		top.addChild(newScript);
-		top.addChild(deleteScript);
+		top.addElement(filter, "growx");
+		top.addElement(stopScripts);
+		top.addElement(newScript);
+		top.addElement(deleteScript);
 
-		top.setMinDimensions(Vector2f.ZERO);
-		top.addChild(scripts, "span 5, growx");
+		top.setMinDimensions(Size.ZERO);
+		top.addElement(scripts, "span 5, growx");
 
 		// Split
-		split = new SplitPanel(screen,Vector2f.ZERO, LUtil.LAYOUT_SIZE, Vector4f.ZERO, null, Orientation.VERTICAL);
+		split = new SplitPanel(screen, Orientation.VERTICAL);
 		split.setLeftOrTop(top);
 		split.setRightOrBottom(properties);
 		split.setDefaultDividerLocationRatio(0.3f);
 
-		addChild(split);
+		addElement(split);
 	}
 
 	public void setConfiguration(OGREParticleConfiguration configuration) {
@@ -239,7 +223,7 @@ public class ParticleEditorPanel extends Container {
 	}
 
 	public OGREParticleScript getSelectedScript() {
-		Table.TableRow row = (Table.TableRow) scripts.getSelectedRow();
+		TableRow row = (TableRow) scripts.getSelectedRow();
 		Object val = row == null ? null : row.getValue();
 		if (val instanceof OGREParticleScript) {
 			return ((OGREParticleScript) val);
@@ -248,10 +232,10 @@ public class ParticleEditorPanel extends Container {
 	}
 
 	protected void pasteScriptFromClipboard() {
-		HUDMessageAppState msg = app.getStateManager().getState(HUDMessageAppState.class);
+		HUDMessageAppState msg = ToolKit.get().getApplication().getStateManager().getState(HUDMessageAppState.class);
 		try {
 			OGREParticleConfiguration cfg = new OGREParticleConfiguration("");
-			cfg.load(new ByteArrayInputStream(screen.getClipboardText().getBytes()));
+			cfg.load(new ByteArrayInputStream(ToolKit.get().getClipboardText().getBytes()));
 			if (cfg.getBackingObject().isEmpty()) {
 				throw new Exception("No script in clipboard.");
 			}
@@ -265,7 +249,8 @@ public class ParticleEditorPanel extends Container {
 			scripts.setSelectedRowIndex(scripts.getRowCount() - 1);
 			scripts.scrollToSelected();
 			if (msg != null) {
-				msg.message(Level.INFO, String.format("Particle script '%s' pasted from clipboard.", ps.getName()));
+				msg.message(HUDMessageAppState.Channel.INFORMATION,
+						String.format("Particle script '%s' pasted from clipboard.", ps.getName()));
 			}
 		} catch (Exception e) {
 			LOG.log(Level.SEVERE, "Failed to paste to particle script from clipboad.", e);
@@ -275,77 +260,78 @@ public class ParticleEditorPanel extends Container {
 	protected void copyScriptToClipboard() {
 		OGREParticleScript selectedScript = getSelectedScript();
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		HUDMessageAppState msg = app.getStateManager().getState(HUDMessageAppState.class);
+		HUDMessageAppState msg = ToolKit.get().getApplication().getStateManager().getState(HUDMessageAppState.class);
 		try {
 			try {
 				selectedScript.write(baos, false);
 			} finally {
 				baos.close();
 			}
-			screen.setClipboardText(new String(baos.toByteArray(), "UTF-8"));
+			ToolKit.get().setClipboardText(new String(baos.toByteArray(), "UTF-8"));
 			if (msg != null) {
-				msg.message(Level.INFO, String.format("Particle script '%s' copied to clipboard.", selectedScript.getName()));
+				msg.message(HUDMessageAppState.Channel.INFORMATION,
+						String.format("Particle script '%s' copied to clipboard.", selectedScript.getName()));
 			}
 		} catch (Exception e) {
 			LOG.log(Level.SEVERE, "Failed to copy particle file to clipboad.", e);
 			if (msg != null) {
-				msg.message(Level.SEVERE, "Failed to copy particle file to clipboad.", e);
+				msg.message(HUDMessageAppState.Channel.ERROR, "Failed to copy particle file to clipboad.", e);
 			}
 		}
 	}
 
 	protected void deleteScript() {
-		final FancyDialogBox dialog = new FancyDialogBox(screen, new Vector2f(15, 15), FancyWindow.Size.LARGE, true) {
+		final DialogBox dialog = new DialogBox(screen, new Vector2f(15, 15), true) {
+			{
+				setStyleClass("large");
+			}
+
 			@Override
 			public void onButtonCancelPressed(MouseButtonEvent evt, boolean toggled) {
-				hideWindow();
+				hide();
 			}
 
 			@Override
 			public void onButtonOkPressed(MouseButtonEvent evt, boolean toggled) {
-				hideWindow();
+				hide();
 				ParticleEditorPanel.this.undoManager.storeAndExecute(new DeleteScriptCommand(getSelectedScript()));
 			}
 		};
 		dialog.setDestroyOnHide(true);
-		dialog.getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
+		ElementStyle.warningColor(dialog.getDragBar());
 		dialog.getDragBar().setText("Confirm Deletion");
 		dialog.setButtonOkText("Delete");
 		dialog.setMsg(String.format("Are you sure you wish to delete this script?"));
-
-		dialog.sizeToContent();
-		dialog.setIsResizable(false);
-		dialog.setIsMovable(false);
-		UIUtil.center(screen, dialog);
-		screen.addElement(dialog, null, true);
-		dialog.showAsModal(true);
+		dialog.setResizable(false);
+		dialog.setMovable(false);
+		dialog.setModal(true);
+		screen.showElement(dialog, ScreenLayoutConstraints.center);
 	}
 
 	protected void createNewScript() {
-		final FancyInputBox dialog = new FancyInputBox(screen, new Vector2f(15, 15), FancyWindow.Size.LARGE, true) {
+		final InputBox dialog = new InputBox(screen, new Vector2f(15, 15), true) {
+
 			@Override
 			public void onButtonCancelPressed(MouseButtonEvent evt, boolean toggled) {
-				hideWindow();
+				hide();
 			}
 
 			@Override
 			public void onButtonOkPressed(MouseButtonEvent evt, String text, boolean toggled) {
 				newScript(text);
-				hideWindow();
+				hide();
 			}
 		};
 		dialog.setDestroyOnHide(true);
-		dialog.getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
+		ElementStyle.warningColor(dialog.getDragBar());
 		dialog.setWindowTitle("New Script");
 		dialog.setButtonOkText("Create");
 		dialog.setMsg("");
-		dialog.setIsResizable(false);
-		dialog.setIsMovable(false);
+		dialog.setResizable(false);
+		dialog.setMovable(false);
 		dialog.sizeToContent();
-		dialog.setWidth(300);
-		UIUtil.center(screen, dialog);
-		screen.addElement(dialog, null, true);
-		dialog.showAsModal(true);
+		dialog.setModal(true);
+		screen.showElement(dialog, ScreenLayoutConstraints.center);
 	}
 
 	protected void newScript(String text) {
@@ -378,6 +364,7 @@ public class ParticleEditorPanel extends Container {
 	}
 
 	public void rebuild() {
+		scripts.invalidate();
 		scripts.removeAllRows();
 		if (configuration != null) {
 			for (Map.Entry<String, OGREParticleScript> g : configuration.getBackingObject().entrySet()) {
@@ -385,57 +372,49 @@ public class ParticleEditorPanel extends Container {
 
 				if (matchesFilter(group.getName())) {
 
-					final Table.TableRow r = new Table.TableRow(screen, scripts, group);
+					final TableRow r = new TableRow(screen, scripts, group);
 
 					//
 					r.addCell(g.getKey(), g);
 
 					// Active
-					Table.TableCell c = new Table.TableCell(screen, group);
+					TableCell c = new TableCell(screen, group);
 					c.setLayoutManager(new MigLayout(screen, "gap 0, ins 0, fill", "[]", "[]"));
-					CheckBox active = new CheckBox(screen, "CheckBox", Vector2f.ZERO) {
-						@Override
-						public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-							super.onButtonMouseLeftUp(evt, toggled);
-							System.out.println("TOGGLED: " + toggled);
-							for (Table.TableRow cr : r.getChildRows()) {
-								Table.TableCell c = cr.getCell(1);
-								CheckBox cb = (CheckBox) c.getChild(1);
-								cb.setIsCheckedNoCallback(toggled);
-							}
-							OGREParticleScript selectedScript = (OGREParticleScript) r.getValue();
-							System.out.println("SEL: " + selectedScript);
-							if (toggled)
-								scripts.setSelectedRowObjects(Arrays.asList(selectedScript));
-							if (particleViewer != null) {
-								if (toggled) {
-									particleViewer.addScript(selectedScript);
-								} else {
-									particleViewer.removeScript(selectedScript);
-								}
+					CheckBox active = new CheckBox(screen);
+					active.onChange(evt -> {
+						boolean toggled = evt.getNewValue();
+						for (TableRow cr : r.getChildRows()) {
+							TableCell ce = cr.getCell(1);
+							CheckBox cb = (CheckBox) ce.getChild(1);
+							cb.runAdjusting(() -> cb.setChecked(toggled));
+						}
+						OGREParticleScript selectedScript = (OGREParticleScript) r.getValue();
+						if (toggled)
+							scripts.runAdjusting(() -> scripts.setSelectedRowObjects(Arrays.asList(selectedScript)));
+						if (particleViewer != null) {
+							if (toggled) {
+								particleViewer.addScript(selectedScript);
+							} else {
+								particleViewer.removeScript(selectedScript);
 							}
 						}
-					};
-					active.setCheckSize(new Vector2f(14, 14));
-					active.setIsCheckedNoCallback(
-							particleViewer != null && particleViewer.hasScript((OGREParticleScript) r.getValue()));
-					c.addChild(active, "ax 50%");
-					r.addChild(c);
-					scripts.addRow(r, false);
+					});
+					active.runAdjusting(() -> active.setChecked(
+							particleViewer != null && particleViewer.hasScript((OGREParticleScript) r.getValue())));
+					c.addElement(active, "ax 50%");
+					r.addElement(c);
+					scripts.addRow(r);
 				}
 			}
 
 		}
-		scripts.pack();
+		scripts.validate();
 		if (scripts.getRowCount() > 0) {
-			adjusting = true;
-			properties.show();
-			try {
+			scripts.runAdjusting(() -> {
 				scripts.setSelectedRowIndex(0);
 				scripts.scrollToSelected();
-			} finally {
-				adjusting = false;
-			}
+			});
+			properties.show();
 			rebuildPropertyPane();
 		} else {
 			properties.hide();
@@ -451,7 +430,7 @@ public class ParticleEditorPanel extends Container {
 		if (filterTask != null) {
 			filterTask.cancel();
 		}
-		filterTask = ((IcesceneApp) app).getAlarm().timed(new Callable<Void>() {
+		filterTask = ((IcesceneApp) ToolKit.get().getApplication()).getAlarm().timed(new Callable<Void>() {
 			public Void call() throws Exception {
 				rebuild();
 				return null;
@@ -460,7 +439,7 @@ public class ParticleEditorPanel extends Container {
 	}
 
 	@SuppressWarnings("serial")
-	class NewScriptCommand implements UndoManager.UndoableCommand {
+	class NewScriptCommand implements UndoableCommand {
 
 		private final OGREParticleScript script;
 
@@ -481,7 +460,7 @@ public class ParticleEditorPanel extends Container {
 	}
 
 	@SuppressWarnings("serial")
-	class DeleteScriptCommand implements UndoManager.UndoableCommand {
+	class DeleteScriptCommand implements UndoableCommand {
 
 		private final OGREParticleScript script;
 		private boolean hadScript;

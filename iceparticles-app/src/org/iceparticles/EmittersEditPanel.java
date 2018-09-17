@@ -6,17 +6,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
-import org.icelib.UndoManager;
 import org.icescene.ogreparticle.AbstractOGREParticleEmitter;
 import org.icescene.ogreparticle.OGREParticleEmitter;
 import org.icescene.ogreparticle.OGREParticleScript;
 import org.icescene.propertyediting.PropertiesPanel;
 import org.icescene.propertyediting.PropertyInfo;
-import org.iceui.controls.FancyButton;
-import org.iceui.controls.FancyDialogBox;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.UIUtil;
-import org.iceui.controls.ZMenu;
+import org.iceui.controls.ElementStyle;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 import org.reflections.util.ClasspathHelper;
@@ -24,37 +19,43 @@ import org.reflections.util.ConfigurationBuilder;
 
 import com.jme3.input.event.MouseButtonEvent;
 import com.jme3.math.Vector2f;
-import com.jme3.math.Vector4f;
 
-import icetone.controls.extras.SplitPanel;
-import icetone.controls.lists.Table;
+import icetone.controls.buttons.PushButton;
+import icetone.controls.containers.SplitPanel;
+import icetone.controls.menuing.Menu;
 import icetone.controls.scrolling.ScrollPanel;
-import icetone.core.Container;
-import icetone.core.ElementManager;
+import icetone.controls.table.Table;
+import icetone.controls.table.TableRow;
+import icetone.core.BaseScreen;
+import icetone.core.Layout.LayoutType;
+import icetone.core.Orientation;
+import icetone.core.Size;
+import icetone.core.StyledContainer;
+import icetone.core.layout.Border;
 import icetone.core.layout.BorderLayout;
-import icetone.core.layout.LUtil;
-import icetone.core.layout.WrappingLayout;
+import icetone.core.layout.ScreenLayoutConstraints;
 import icetone.core.layout.mig.MigLayout;
+import icetone.core.undo.UndoManager;
+import icetone.core.undo.UndoableCommand;
+import icetone.extras.windows.DialogBox;
 
-public class EmittersEditPanel extends Container {
+public class EmittersEditPanel extends StyledContainer {
 
 	private static final Logger LOG = Logger.getLogger(EmittersEditPanel.class.getName());
 	private OGREParticleScript script;
-	private boolean adjusting = false;
 	private final Table emitters;
 	private final PropertiesPanel<OGREParticleEmitter> properties;
-	private final FancyButton newEmitter;
-	private final FancyButton deleteEmitter;
+	private final PushButton newEmitter;
+	private final PushButton deleteEmitter;
 	private final Set<Class<? extends AbstractOGREParticleEmitter>> emitterTypes;
 	private final UndoManager undoManager;
 	private final ScrollPanel scroller;
 	private final ParticleViewerAppState particleViewer;
 
 	public EmittersEditPanel(Preferences prefs, ParticleViewerAppState particleViewer, UndoManager undoManager,
-			ElementManager screen) {
+			BaseScreen screen) {
 		super(screen);
 
-		adjusting = true;
 		this.undoManager = undoManager;
 		this.particleViewer = particleViewer;
 
@@ -64,131 +65,127 @@ public class EmittersEditPanel extends Container {
 				.setScanners(new SubTypesScanner()));
 		emitterTypes = emitterReflections.getSubTypesOf(AbstractOGREParticleEmitter.class);
 
-		try {
-			// New emitter
-			newEmitter = new FancyButton(screen) {
-				@Override
-				public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-					createNewEmitter();
-				}
-			};
-			newEmitter.setButtonIcon(-1, -1, "Interface/Styles/Gold/Common/Icons/new.png");
-			newEmitter.setToolTipText("New Emitter");
+		// New emitter
+		newEmitter = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
+			}
+		};
+		newEmitter.onMouseReleased(evt -> createNewEmitter());
+		newEmitter.getButtonIcon().setStyleClass("icon icon-new");
+		newEmitter.setToolTipText("New Emitter");
 
-			// Delete emitter
+		// Delete emitter
 
-			deleteEmitter = new FancyButton(screen) {
-				@Override
-				public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-					deleteEmitter();
-				}
-			};
-			deleteEmitter.setButtonIcon(-1, -1, "Interface/Styles/Gold/Common/Icons/trash.png");
-			deleteEmitter.setToolTipText("Delete Emitter");
+		deleteEmitter = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
+			}
+		};
+		deleteEmitter.onMouseReleased(evt -> deleteEmitter());
+		deleteEmitter.getButtonIcon().setStyleClass("icon icon-trash");
+		deleteEmitter.setToolTipText("Delete Emitter");
 
-			// Toolbar
-			Container tools = new Container(screen);
-			tools.setLayoutManager(new MigLayout(screen, "wrap 1, ins 0", "[grow, fill]", "[shrink 0][shrink 0]"));
-			tools.addChild(newEmitter);
-			tools.addChild(deleteEmitter);
+		// Toolbar
+		StyledContainer tools = new StyledContainer(screen) {
+			{
+				setStyleClass("editor-tools");
+			}
+		};
+		tools.setLayoutManager(new MigLayout(screen, "wrap 1, ins 0", "[grow, fill]", "[shrink 0][shrink 0]"));
+		tools.addElement(newEmitter);
+		tools.addElement(deleteEmitter);
 
-			// Emitters
-			emitters = new Table(screen) {
-				@Override
-				public void onChange() {
-					if (!adjusting) {
-						rebuildPropertyPane();
-					}
-				}
-			};
-			emitters.setHeadersVisible(false);
-			emitters.setUseContentPaging(true);
-			emitters.setColumnResizeMode(Table.ColumnResizeMode.AUTO_FIRST);
-			emitters.addColumn("Group");
+		// Emitters
+		emitters = new Table(screen);
+		emitters.onChanged(evt -> {
+			if (!evt.getSource().isAdjusting()) {
+				rebuildPropertyPane();
+			}
+		});
+		emitters.setHeadersVisible(false);
+		emitters.setColumnResizeMode(Table.ColumnResizeMode.AUTO_FIRST);
+		emitters.addColumn("Group");
 
-			// Top
-			Container top = new Container(screen);
-			top.setLayoutManager(new MigLayout(screen, "ins 0, fill", "[shrink 0][fill, grow]", "[]"));
-			top.addChild(tools);
-			top.addChild(emitters, "growx, growy");
-			top.setMinDimensions(new Vector2f(0, 0));
+		// Top
+		StyledContainer top = new StyledContainer(screen);
+		top.setLayoutManager(new MigLayout(screen, "ins 0, fill", "[shrink 0][fill, grow]", "[]"));
+		top.addElement(tools);
+		top.addElement(emitters, "growx, growy");
+		top.setMinDimensions(new Size(0, 0));
 
-			// Properties
-			properties = new PropertiesPanel<OGREParticleEmitter>(screen, prefs) {
-				@Override
-				protected void onPropertyChange(PropertyInfo<OGREParticleEmitter> info, OGREParticleEmitter object, Object value) {
-					EmittersEditPanel.this.particleViewer.scriptUpdated(object.getScript());
-				}
-			};
-			properties.setUndoManager(undoManager);
+		// Properties
+		properties = new PropertiesPanel<OGREParticleEmitter>(screen, prefs) {
+			@Override
+			protected void onPropertyChange(PropertyInfo<OGREParticleEmitter> info, OGREParticleEmitter object,
+					Object value) {
+				EmittersEditPanel.this.particleViewer.scriptUpdated(object.getScript());
+			}
+		};
+		properties.setUndoManager(undoManager);
 
-			// Scroller
-			scroller = new ScrollPanel(screen, Vector2f.ZERO, LUtil.LAYOUT_SIZE, Vector4f.ZERO, null);
-			scroller.addScrollableContent(properties);
+		// Scroller
+		scroller = new ScrollPanel(screen);
+		scroller.addScrollableContent(properties);
 
-			// This
+		// This
 
-			SplitPanel split = new SplitPanel(screen, Vector2f.ZERO, LUtil.LAYOUT_SIZE, Vector4f.ZERO, null, Orientation.VERTICAL);
-			split.setDefaultDividerLocationRatio(0.25f);
-			split.setLeftOrTop(top);
-			split.setRightOrBottom(scroller);
+		SplitPanel split = new SplitPanel(screen, Orientation.VERTICAL);
+		split.setDefaultDividerLocationRatio(0.25f);
+		split.setLeftOrTop(top);
+		split.setRightOrBottom(scroller);
 
-			setLayoutManager(new BorderLayout());
-			addChild(split, BorderLayout.Border.CENTER);
-
-		} finally {
-			adjusting = false;
-		}
+		setLayoutManager(new BorderLayout());
+		addElement(split, Border.CENTER);
 	}
 
 	public void setScript(OGREParticleScript script) {
 		this.script = script;
-		newEmitter.setIsEnabled(script != null);
-		deleteEmitter.setIsEnabled(script != null);
+		newEmitter.setEnabled(script != null);
+		deleteEmitter.setEnabled(script != null);
 		rebuildEmitters();
 	}
 
 	protected void deleteEmitter() {
-		final FancyDialogBox dialog = new FancyDialogBox(screen, new Vector2f(15, 15), FancyWindow.Size.LARGE, true) {
+		final DialogBox dialog = new DialogBox(screen, new Vector2f(15, 15), true) {
+			{
+				setStyleClass("large");
+			}
+
 			@Override
 			public void onButtonCancelPressed(MouseButtonEvent evt, boolean toggled) {
-				hideWindow();
+				hide();
 			}
 
 			@Override
 			public void onButtonOkPressed(MouseButtonEvent evt, boolean toggled) {
-				EmittersEditPanel.this.undoManager.storeAndExecute(new DeleteEmitterCommand(script, getSelectedEmitter()));
+				EmittersEditPanel.this.undoManager
+						.storeAndExecute(new DeleteEmitterCommand(script, getSelectedEmitter()));
 				rebuildEmitters();
-				hideWindow();
+				hide();
 			}
 		};
 		dialog.setDestroyOnHide(true);
-		dialog.getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
+		ElementStyle.warningColor(dialog.getDragBar());
 		dialog.getDragBar().setText("Confirm Deletion");
 		dialog.setButtonOkText("Delete");
 		dialog.setMsg(String.format("Are you sure you wish to delete this emitter?"));
-
-		dialog.sizeToContent();
-		dialog.setIsResizable(false);
-		dialog.setIsMovable(false);
-		UIUtil.center(screen, dialog);
-		screen.addElement(dialog, null, true);
-		dialog.showAsModal(true);
+		dialog.setResizable(false);
+		dialog.setMovable(false);
+		dialog.setModal(true);
+		screen.showElement(dialog, ScreenLayoutConstraints.center);
 	}
 
 	protected void createNewEmitter() {
-		ZMenu zm = new ZMenu(screen) {
-			@SuppressWarnings("unchecked")
-			@Override
-			protected void onItemSelected(ZMenu.ZMenuItem item) {
-				Class<? extends OGREParticleEmitter> clazz = (Class<? extends OGREParticleEmitter>) item.getValue();
-				try {
-					EmittersEditPanel.this.undoManager.storeAndExecute(new NewEmitterCommand(script, clazz));
-				} catch (Exception e) {
-					LOG.log(Level.SEVERE, "Failed to create emitter.", e);
-				}
+		Menu<Class<? extends OGREParticleEmitter>> zm = new Menu<>(screen);
+		zm.onChanged((evt) -> {
+			try {
+				EmittersEditPanel.this.undoManager
+						.storeAndExecute(new NewEmitterCommand(script, evt.getNewValue().getValue()));
+			} catch (Exception e) {
+				LOG.log(Level.SEVERE, "Failed to create emitter.", e);
 			}
-		};
+		});
 		for (Class<? extends AbstractOGREParticleEmitter> c : emitterTypes) {
 			if (!Modifier.isAbstract(c.getModifiers())) {
 				zm.addMenuItem(c.getSimpleName(), c);
@@ -201,31 +198,25 @@ public class EmittersEditPanel extends Container {
 	protected void rebuildPropertyPane() {
 		OGREParticleEmitter emitter = getSelectedEmitter();
 		properties.setObject(emitter);
-		dirtyLayout(true);
+		dirtyLayout(false, LayoutType.boundsChange());
 		layoutChildren();
 		scroller.scrollToTop();
 	}
 
 	protected void rebuildEmitters() {
-		System.out.println("rebuildEmitters()");
+		emitters.invalidate();
 		emitters.removeAllRows();
 		if (script != null) {
-			System.out.println(" " + script.getEmitters().size() + " emitters");
 			for (OGREParticleEmitter emitter : script.getEmitters()) {
-				Table.TableRow row = new Table.TableRow(screen, emitters, emitter);
+				TableRow row = new TableRow(screen, emitters, emitter);
 				row.addCell(emitter.getClass().getSimpleName(), emitter);
-				emitters.addRow(row, false);
+				emitters.addRow(row);
 			}
 		}
-		emitters.pack();
+		emitters.validate();
 		if (emitters.getRowCount() > 0) {
-			adjusting = true;
 			properties.show();
-			try {
-				emitters.setSelectedRowIndex(0);
-			} finally {
-				adjusting = false;
-			}
+			emitters.runAdjusting(() -> emitters.setSelectedRowIndex(0));
 			rebuildPropertyPane();
 		} else {
 			rebuildPropertyPane();
@@ -234,13 +225,13 @@ public class EmittersEditPanel extends Container {
 	}
 
 	protected OGREParticleEmitter getSelectedEmitter() {
-		OGREParticleEmitter emitter = (OGREParticleEmitter) (emitters.isAnythingSelected() ? emitters.getSelectedObjects().get(0)
-				: null);
+		OGREParticleEmitter emitter = (OGREParticleEmitter) (emitters.isAnythingSelected()
+				? emitters.getSelectedObjects().get(0) : null);
 		return emitter;
 	}
 
 	@SuppressWarnings("serial")
-	class DeleteEmitterCommand implements UndoManager.UndoableCommand {
+	class DeleteEmitterCommand implements UndoableCommand {
 
 		private final OGREParticleScript script;
 		private final OGREParticleEmitter emitter;
@@ -269,7 +260,7 @@ public class EmittersEditPanel extends Container {
 	}
 
 	@SuppressWarnings("serial")
-	class NewEmitterCommand implements UndoManager.UndoableCommand {
+	class NewEmitterCommand implements UndoableCommand {
 
 		private final OGREParticleScript script;
 		private final Class<? extends OGREParticleEmitter> emitter;

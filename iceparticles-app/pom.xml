@@ -96,6 +96,11 @@
 			<artifactId>icescene</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.icemoon</groupId>
+			<artifactId>icetone-theme-paranoid</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 		
 		 <dependency>
 			<groupId>org.icemoon</groupId>
